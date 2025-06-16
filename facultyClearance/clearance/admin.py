@@ -4,7 +4,8 @@ from .models import (
     FacultyMember,
     DepartmentChair,
     CollegeDean,
-    ClearanceDocument
+    Requirement,
+    Upload
 )
 
 
@@ -16,7 +17,7 @@ class DepartmentAdmin(admin.ModelAdmin):
 
 @admin.register(FacultyMember)
 class FacultyMemberAdmin(admin.ModelAdmin):
-    list_display = ('user', 'department')
+    list_display = ('user', 'department', 'is_part_time')
     search_fields = ('user__username', 'user__first_name', 'user__last_name')
     list_filter = ('department',)
 
@@ -34,9 +35,25 @@ class CollegeDeanAdmin(admin.ModelAdmin):
     search_fields = ('user__username', 'user__first_name', 'user__last_name')
 
 
-@admin.register(ClearanceDocument)
-class ClearanceDocumentAdmin(admin.ModelAdmin):
-    list_display = ('document_type', 'uploader', 'role', 'department', 'status', 'uploaded_at')
-    list_filter = ('role', 'department', 'status', 'uploaded_at')
-    search_fields = ('uploader__username', 'document_type', 'comments')
-    readonly_fields = ('uploaded_at',)
+@admin.register(Requirement)
+class RequirementAdmin(admin.ModelAdmin):
+    list_display = ('title', 'applicable_to', 'created_at')
+    search_fields = ('title',)
+    ordering = ('-created_at',)
+
+
+@admin.register(Upload)
+class UploadAdmin(admin.ModelAdmin):
+    list_display = ('requirement', 'uploaded_by', 'get_department', 'status', 'uploaded_at')
+    list_filter = ('status',)
+    search_fields = ('requirement__name', 'uploaded_by__username')  # ✅ corrected field
+
+    def get_department(self, obj):
+        user = obj.uploaded_by
+        if hasattr(user, 'facultymember'):
+            return user.facultymember.department.name
+        elif hasattr(user, 'departmentchair'):
+            return user.departmentchair.department.name
+        return 'N/A'
+
+    get_department.short_description = 'Department'

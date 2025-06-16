@@ -14,6 +14,7 @@ class Department(models.Model):
 class FacultyMember(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     department = models.ForeignKey(Department, on_delete=models.CASCADE)
+    is_part_time = models.BooleanField(default=False)
 
     def __str__(self):
         return self.user.get_full_name()
@@ -36,26 +37,36 @@ class CollegeDean(models.Model):
         return self.user.get_full_name()
 
 
-# Clearance Document model for both Faculty and Chair
-class ClearanceDocument(models.Model):
+# Requirement model for dynamic clearance items
+class Requirement(models.Model):
     ROLE_CHOICES = [
         ('faculty', 'Faculty Member'),
         ('chair', 'Department Chair'),
+        ('part_timer', 'Part-time Faculty'),
     ]
 
-    uploader = models.ForeignKey(User, on_delete=models.CASCADE)
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES)
-    department = models.ForeignKey(Department, on_delete=models.CASCADE)
-    document_type = models.CharField(max_length=100)
-    file = models.FileField(upload_to='documents/')
-    status_choices = [
-        ('pending', 'Pending'),
-        ('approved', 'Approved'),
-        ('rejected', 'Rejected'),
-    ]
-    status = models.CharField(max_length=20, choices=status_choices, default='pending')
-    comments = models.TextField(blank=True, null=True)
-    uploaded_at = models.DateTimeField(auto_now_add=True)
+    title = models.CharField(max_length=255)
+    applicable_to = models.CharField(max_length=10, choices=ROLE_CHOICES, default='faculty')
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.document_type} ({self.role}) - {self.uploader.username}"
+        return self.title
+
+
+# Upload model to associate uploaded files with requirements
+class Upload(models.Model):
+    STATUS_CHOICES = [
+        ('Pending', 'Pending'),
+        ('Approved', 'Approved'),
+        ('Rejected', 'Rejected'),
+    ]
+
+    requirement = models.ForeignKey(Requirement, on_delete=models.CASCADE, related_name='uploads')
+    uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    file = models.FileField(upload_to='uploads/')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='Pending')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    comment = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.requirement.title} - {self.status}"

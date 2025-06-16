@@ -1,35 +1,154 @@
 {% extends 'base.html' %}
+{% load static %}
+{% load custom_tags %}
 
 {% block content %}
-<div class="container">
-  <h2 class="mb-3">Welcome, {{ user.get_full_name }}!</h2>
-  <p class="lead">Role: <strong>{{ role }}</strong></p>
+<div class="container my-4">
+  <h2 class="mb-2">Welcome, {{ user.get_full_name }}!</h2>
+  <p class="lead">Role: <strong>{{ role|title }}</strong></p>
 
-  {% if documents %}
-    <h4 class="mt-4">📁 Your Uploaded Documents</h4>
-    <ul class="list-group">
-      {% for doc in documents %}
-        <li class="list-group-item d-flex justify-content-between align-items-center">
-          {{ doc.document_type }}
-          <span class="badge bg-{{ doc.is_approved|yesno:'success,danger' }}">
-            {{ doc.is_approved|yesno:"Approved,Pending" }}
-          </span>
-        </li>
-      {% endfor %}
-    </ul>
-  {% elif pending_approvals %}
-    <h4 class="mt-4">📝 Pending Approvals</h4>
-    <ul class="list-group">
-      {% for doc in pending_approvals %}
-        <li class="list-group-item">
-          {{ doc.document_type }} from {{ doc.uploader.get_full_name }}
-        </li>
-      {% endfor %}
-    </ul>
+  {% if requirements %}
+    <h4 class="mt-4">📋 Your Clearance Requirements</h4>
+    {% for requirement in requirements %}
+      {% with upload=upload_dict|get_item:requirement.id %}
+        <div class="card mb-3 shadow-sm">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center flex-wrap">
+              <div class="me-3">
+                <h5 class="card-title mb-1">{{ requirement.title }}</h5>
+                {% if upload %}
+                  <a href="#" class="text-decoration-none text-primary view-file-link"
+                     data-bs-toggle="modal"
+                     data-bs-target="#previewModal"
+                     data-file-url="{{ upload.file.url }}">
+                    <i class="fas fa-file-alt me-1"></i> View File
+                  </a>
+                  <span class="badge rounded-pill
+                    {% if upload.status == 'Approved' %}bg-success
+                    {% elif upload.status == 'Rejected' %}bg-danger
+                    {% else %}bg-warning text-dark{% endif %}">
+                    {{ upload.status }}
+                  </span>
+
+                  {% if upload.status == 'Rejected' and upload.comment %}
+                    <div class="mt-2">
+                      <small class="text-danger">
+                        <i class="fas fa-comment-dots me-1"></i>
+                        <strong> {{ upload.comment }} </strong>
+                      </small>
+                    </div>
+                  {% endif %}
+                {% else %}
+                  <span class="text-muted">No file uploaded</span>
+                {% endif %}
+              </div>
+              <div>
+                {% if not upload or upload.status != 'Approved' %}
+                  <button class="btn {% if upload %}btn-outline-secondary{% else %}btn-primary{% endif %} btn-sm"
+                          type="button"
+                          data-bs-toggle="collapse"
+                          data-bs-target="#uploadForm{{ requirement.id }}"
+                          aria-expanded="false"
+                          aria-controls="uploadForm{{ requirement.id }}">
+                    {% if upload %}Update{% else %}Upload{% endif %}
+                  </button>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <div class="collapse" id="uploadForm{{ requirement.id }}">
+            <div class="card-body border-top pt-3">
+              <form method="post" enctype="multipart/form-data" action="{% url 'inline_upload' requirement.id %}">
+                {% csrf_token %}
+                <div class="mb-3">
+                  <input type="file" name="file" class="form-control" required>
+                </div>
+                <button type="submit" class="btn btn-success btn-sm">Submit</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      {% endwith %}
+    {% endfor %}
   {% else %}
     <div class="alert alert-info mt-4">
-      No records to show yet.
+      No requirements found for your role.
     </div>
   {% endif %}
+
+  {% if pending_approvals %}
+    <h4 class="mt-5">📝 Pending Approvals</h4>
+    <ul class="list-group">
+      {% for item in pending_approvals %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <span>{{ item.requirement.title }}</span>
+          <span><strong>{{ item.uploaded_by.get_full_name }}</strong></span>
+          <span class="badge bg-warning text-dark">Pending</span>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  <!-- Toast -->
+  <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080;">
+    <div id="uploadToast" class="toast align-items-center text-bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="d-flex">
+        <div class="toast-body">
+          ✅ File uploaded successfully!
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- File Preview Modal -->
+  <div class="modal fade" id="previewModal" tabindex="-1" aria-labelledby="previewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="previewModalLabel">File Preview</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" style="height: 80vh;">
+          <iframe id="previewFrame" src="" width="100%" height="100%" style="border: none;"></iframe>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const params = new URLSearchParams(window.location.search);
+    const openId = params.get('open');
+    const uploaded = params.get('uploaded');
+
+    if (openId) {
+      const collapse = document.getElementById('uploadForm' + openId);
+      if (collapse) {
+        new bootstrap.Collapse(collapse, { show: true });
+      }
+    }
+
+    if (uploaded === 'true') {
+      const toastElement = document.getElementById('uploadToast');
+      if (toastElement) {
+        const toast = new bootstrap.Toast(toastElement);
+        toast.show();
+      }
+    }
+
+    // File preview modal
+    document.querySelectorAll('.view-file-link').forEach(link => {
+      link.addEventListener('click', function (e) {
+        e.stopPropagation();  // Prevent collapse toggle
+        const fileUrl = this.getAttribute('data-file-url');
+        const previewFrame = document.getElementById('previewFrame');
+        previewFrame.src = fileUrl;
+      });
+    });
+  });
+</script>
+
 {% endblock %}

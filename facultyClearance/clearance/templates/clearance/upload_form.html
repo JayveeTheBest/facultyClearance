@@ -1,12 +1,15 @@
 {% extends 'base.html' %}
 
 {% block content %}
-  <div class="container mt-5">
-    <h2>Upload Clearance Requirement</h2>
-    <form method="post" enctype="multipart/form-data">
-      {% csrf_token %}
-      {{ form.as_p }}
-      <button type="submit" class="btn btn-primary">Upload</button>
-    </form>
-  </div>
+  <h3 class="mb-4">
+    {% if is_reupload %}Update{% else %}Upload{% endif %} {{ requirement.title }}
+  </h3>
+
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">
+      {% if is_reupload %}Update File{% else %}Upload File{% endif %}
+    </button>
+  </form>
 {% endblock %}
