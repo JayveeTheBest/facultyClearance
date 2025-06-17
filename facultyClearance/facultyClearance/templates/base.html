@@ -65,11 +65,6 @@
       <i class="fas fa-home me-2"></i>Dashboard
     </a>
 
-    {% if role == 'faculty' %}
-      <!-- My Documents for Faculty -->
-      <a href="{% url 'my_clearance' %}">
-        <i class="fas fa-file-alt me-2"></i>My Documents
-      </a>
     {% elif role == 'chair' or role == 'dean' %}
       <!-- Approvals and Submissions for Chair/Dean -->
       <a href="{% url 'approvals' %}">
@@ -89,7 +84,7 @@
     {% endif %}
 
     <!-- Logout -->
-    <a href="" class="text-danger">
+    <a href="{{ url 'logout' }}" class="text-danger">
       <i class="fas fa-sign-out-alt me-2"></i>Logout
     </a>
   </nav>
